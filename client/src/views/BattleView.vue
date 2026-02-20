@@ -371,14 +371,22 @@ onUnmounted(() => {
   box-shadow: var(--shadow), 0 0 0 3px rgba(192,57,43,0.08);
 }
 
-/* Flash message */
+/* Flash message — поверх всего, не влияет на поток */
 .flash-msg {
-  padding: 7px 20px;
+  position: fixed;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 200;
+  padding: 9px 24px;
   border-radius: 3px;
   font-weight: 700;
   font-size: 13px;
   letter-spacing: 1px;
   text-transform: uppercase;
+  pointer-events: none;
+  white-space: nowrap;
+  box-shadow: var(--shadow-lg);
 }
 
 .flash-hit    { background: rgba(192,57,43,0.08);  color: var(--hit);  border: 1.5px solid var(--hit); }
@@ -388,10 +396,10 @@ onUnmounted(() => {
 
 /* Flash transition */
 .flash-enter-active, .flash-leave-active {
-  transition: opacity 0.25s, transform 0.25s;
+  transition: opacity 0.2s, transform 0.2s;
 }
 .flash-enter-from, .flash-leave-to {
   opacity: 0;
-  transform: translateY(-6px);
+  transform: translateX(-50%) translateY(-8px);
 }
 </style>
