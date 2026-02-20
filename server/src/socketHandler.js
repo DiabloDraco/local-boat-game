@@ -108,6 +108,17 @@ module.exports = function registerHandlers(io, socket) {
     }
   })
 
+  // ── chat:message ───────────────────────────────────────────────────────────
+  socket.on('chat:message', ({ text }) => {
+    const room = rm.getRoomByPlayer(socket.id)
+    if (!room) return
+    const player = room.players.find(p => p.id === socket.id)
+    if (!player) return
+    const clean = (text || '').trim().slice(0, 200)
+    if (!clean) return
+    io.to(room.code).emit('chat:incoming', { from: player.name, fromId: socket.id, text: clean })
+  })
+
   // ── disconnect ─────────────────────────────────────────────────────────────
   socket.on('disconnect', () => {
     const room = rm.removePlayer(socket.id)

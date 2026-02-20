@@ -23,33 +23,37 @@
       </div>
     </Transition>
 
-    <!-- Two grids -->
-    <div class="boards-wrap">
-      <div class="board-section">
-        <h3 class="board-label">Ваше поле</h3>
-        <div class="grid-paper" :class="{ 'under-attack': !gameStore.isMyTurn && !gameOver }">
-          <GameGrid
-            mode="defense"
-            :cells="gameStore.myBoard"
-            :can-shoot="false"
-          />
+    <!-- Grids + chat -->
+    <div class="battle-content">
+      <div class="boards-wrap">
+        <div class="board-section">
+          <h3 class="board-label">Ваше поле</h3>
+          <div class="grid-paper" :class="{ 'under-attack': !gameStore.isMyTurn && !gameOver }">
+            <GameGrid
+              mode="defense"
+              :cells="gameStore.myBoard"
+              :can-shoot="false"
+            />
+          </div>
+        </div>
+
+        <div class="board-section">
+          <h3 class="board-label attack-label" :class="{ active: gameStore.isMyTurn }">
+            Поле противника
+            <span v-if="gameStore.isMyTurn" class="aim-hint">← целься сюда</span>
+          </h3>
+          <div class="grid-paper" :class="{ 'my-turn-board': gameStore.isMyTurn && !gameOver }">
+            <GameGrid
+              mode="attack"
+              :cells="gameStore.enemyBoard"
+              :can-shoot="gameStore.isMyTurn && !gameOver"
+              @cell-click="onShoot"
+            />
+          </div>
         </div>
       </div>
 
-      <div class="board-section">
-        <h3 class="board-label attack-label" :class="{ active: gameStore.isMyTurn }">
-          Поле противника
-          <span v-if="gameStore.isMyTurn" class="aim-hint">← целься сюда</span>
-        </h3>
-        <div class="grid-paper" :class="{ 'my-turn-board': gameStore.isMyTurn && !gameOver }">
-          <GameGrid
-            mode="attack"
-            :cells="gameStore.enemyBoard"
-            :can-shoot="gameStore.isMyTurn && !gameOver"
-            @cell-click="onShoot"
-          />
-        </div>
-      </div>
+      <ChatPanel />
     </div>
 
     <!-- Game over modal -->
@@ -85,6 +89,7 @@
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import GameGrid from '../components/GameGrid.vue'
+import ChatPanel from '../components/ChatPanel.vue'
 import socket from '../socket.js'
 import { useGameStore } from '../stores/gameStore.js'
 import { useRoomStore } from '../stores/roomStore.js'
@@ -177,6 +182,8 @@ onUnmounted(() => {
   min-height: 100vh;
   gap: 10px;
   width: 100%;
+  /* Уменьшаем клетки, чтобы оба поля поместились рядом */
+  --cell-size: 38px;
 }
 
 .battle-header {
@@ -188,7 +195,7 @@ onUnmounted(() => {
   border-radius: 3px;
   border: 1px solid var(--line);
   width: 100%;
-  max-width: 1060px;
+  max-width: 1000px;
   justify-content: center;
   box-shadow: var(--shadow);
 }
@@ -213,15 +220,24 @@ onUnmounted(() => {
   padding: 0 16px;
 }
 
+/* Content row: boards + chat */
+.battle-content {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  justify-content: center;
+  width: 100%;
+  max-width: 1240px;
+}
+
 /* Boards */
 .boards-wrap {
   display: flex;
-  gap: 32px;
-  flex-wrap: wrap;
+  gap: 24px;
+  flex-wrap: nowrap;
   justify-content: center;
   align-items: flex-start;
-  width: 100%;
-  max-width: 1060px;
+  flex: 0 0 auto;
 }
 
 .board-section {
@@ -239,7 +255,7 @@ onUnmounted(() => {
   padding: 14px 28px;
   border-radius: 4px;
   width: 100%;
-  max-width: 1060px;
+  max-width: 1000px;
   position: relative;
   overflow: hidden;
   border: 2px solid;
