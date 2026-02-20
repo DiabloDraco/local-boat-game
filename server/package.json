@@ -1,0 +1,18 @@
+{
+  "name": "boat-game-server",
+  "version": "1.0.0",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "nodemon src/index.js",
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2",
+    "dotenv": "^16.3.1",
+    "nanoid": "^3.3.7"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}

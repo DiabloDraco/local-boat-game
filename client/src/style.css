@@ -1,0 +1,373 @@
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --paper:        #f0ead8;
+  --paper-dark:   #e5dcc8;
+  --paper-white:  #faf7f0;
+  --ink:          #1a1a2e;
+  --ink-mid:      #4a4a6a;
+  --ink-light:    #8a8aaa;
+  --line:         #c8bfa8;
+  --grid-line:    #a8b8cc;
+  --ship:         #2c4f7a;
+  --ship-fill:    #3a6496;
+  --hit:          #c0392b;
+  --miss:         #4a7a9a;
+  --sunk:         #8b1a1a;
+  --accent:       #2c5f8a;
+  --accent-light: #4a8bbf;
+  --green:        #2d6a4f;
+  --gold:         #8b6914;
+  --cell-size:    44px;
+  --shadow:       0 2px 8px rgba(0,0,0,0.12), 0 1px 3px rgba(0,0,0,0.08);
+  --shadow-lg:    0 8px 24px rgba(0,0,0,0.15), 0 2px 6px rgba(0,0,0,0.1);
+}
+
+html, body {
+  height: 100%;
+  background: var(--paper-dark);
+  color: var(--ink);
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  /* Graph paper background */
+  background-image:
+    linear-gradient(rgba(160,148,120,0.25) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(160,148,120,0.25) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ── Typography ── */
+.game-title {
+  font-size: 2.4rem;
+  font-weight: 900;
+  text-align: center;
+  color: var(--ink);
+  letter-spacing: 8px;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.game-title::after {
+  content: '';
+  display: block;
+  width: 60px;
+  height: 3px;
+  background: var(--accent);
+  margin: 10px auto 0;
+  border-radius: 2px;
+}
+
+.subtitle {
+  color: var(--ink-light);
+  text-align: center;
+  margin-bottom: 28px;
+  font-size: 12px;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+/* ── Card (paper sheet) ── */
+.card {
+  background: var(--paper-white);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  padding: 28px 32px;
+  box-shadow: var(--shadow);
+  position: relative;
+  /* Ruled lines on card */
+  background-image: repeating-linear-gradient(
+    transparent,
+    transparent 27px,
+    rgba(168,184,204,0.3) 28px
+  );
+  background-size: 100% 28px;
+}
+.card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 3px;
+  background: var(--accent);
+  border-radius: 3px 3px 0 0;
+}
+/* No global ::after — added per-card where needed */
+
+/* ── Inputs ── */
+.input {
+  background: var(--paper);
+  border: 1.5px solid var(--line);
+  border-radius: 3px;
+  color: var(--ink);
+  font-size: 15px;
+  padding: 10px 14px;
+  outline: none;
+  width: 100%;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  font-family: inherit;
+}
+.input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(44,95,138,0.12);
+  background: var(--paper-white);
+}
+.input::placeholder {
+  color: var(--ink-light);
+}
+
+/* ── Buttons ── */
+.btn {
+  padding: 10px 24px;
+  border: 1.5px solid transparent;
+  border-radius: 3px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  font-family: inherit;
+}
+.btn:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+  box-shadow: 0 2px 0 rgba(0,0,0,0.18);
+}
+.btn-primary:not(:disabled):hover {
+  background: var(--accent-light);
+  border-color: var(--accent-light);
+  transform: translateY(-1px);
+  box-shadow: 0 3px 0 rgba(0,0,0,0.18);
+}
+.btn-primary:not(:disabled):active {
+  transform: translateY(1px);
+  box-shadow: none;
+}
+
+.btn-danger {
+  background: var(--hit);
+  color: #fff;
+  border-color: var(--hit);
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--ink-mid);
+  border-color: var(--line);
+}
+.btn-ghost:not(:disabled):hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(44,95,138,0.06);
+}
+
+/* ── Form ── */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 16px;
+}
+
+.form-label {
+  font-size: 10px;
+  color: var(--ink-mid);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  font-weight: 700;
+}
+
+.divider {
+  text-align: center;
+  color: var(--ink-light);
+  font-size: 11px;
+  margin: 18px 0;
+  position: relative;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+.divider::before, .divider::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 42%;
+  height: 1px;
+  background: var(--line);
+}
+.divider::before { left: 0; }
+.divider::after  { right: 0; }
+
+.error-msg {
+  color: var(--hit);
+  font-size: 12px;
+  margin-top: 6px;
+  min-height: 18px;
+  font-weight: 600;
+}
+
+/* ── Grid cells ── */
+.grid-cell {
+  width: var(--cell-size);
+  height: var(--cell-size);
+  border: 1px solid var(--grid-line);
+  cursor: default;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  transition: background-color 0.1s;
+}
+
+.grid-cell.empty { background: rgba(250,247,240,0.7); }
+
+.grid-cell.ship {
+  background: var(--ship-fill);
+  border-color: var(--ship);
+}
+
+.grid-cell.hit   { background: #fdecea; }
+.grid-cell.miss  { background: rgba(210,225,238,0.6); }
+.grid-cell.sunk  { background: #f5cccc; }
+
+.grid-cell.preview-valid {
+  background: rgba(45,106,79,0.18);
+  border-color: #2d6a4f;
+}
+.grid-cell.preview-invalid {
+  background: rgba(192,57,43,0.13);
+  border-color: var(--hit);
+}
+
+/* ── Hit/Miss markers — hand-drawn style ── */
+.cell-marker {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* X for hit */
+.hit .cell-marker::before,
+.hit .cell-marker::after {
+  content: '';
+  position: absolute;
+  width: 55%;
+  height: 2.5px;
+  border-radius: 2px;
+  background: var(--hit);
+}
+.hit .cell-marker::before { transform: rotate(45deg); }
+.hit .cell-marker::after  { transform: rotate(-45deg); }
+
+/* Sunk - thicker X */
+.sunk .cell-marker::before,
+.sunk .cell-marker::after {
+  content: '';
+  position: absolute;
+  width: 62%;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--sunk);
+}
+.sunk .cell-marker::before { transform: rotate(45deg); }
+.sunk .cell-marker::after  { transform: rotate(-45deg); }
+
+/* Circle for miss */
+.miss .cell-marker::before {
+  content: '';
+  position: absolute;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 2.5px solid var(--miss);
+  background: transparent;
+}
+.miss .cell-marker::after { display: none; }
+
+/* ── Status bar ── */
+.status-bar {
+  text-align: center;
+  padding: 10px 24px;
+  border-radius: 3px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin: 10px 0;
+  border: 1.5px solid;
+}
+.status-bar.my-turn    { background: rgba(45,106,79,0.1);   border-color: var(--green);  color: var(--green); }
+.status-bar.enemy-turn { background: rgba(192,57,43,0.08);  border-color: var(--hit);    color: var(--hit); }
+.status-bar.waiting    { background: rgba(44,95,138,0.08);  border-color: var(--accent); color: var(--accent); }
+
+/* ── Modal ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(26,26,46,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  backdrop-filter: blur(3px);
+}
+
+.modal {
+  background: var(--paper-white);
+  border: 1.5px solid var(--line);
+  border-radius: 3px;
+  padding: 40px 48px;
+  text-align: center;
+  max-width: 420px;
+  width: 90%;
+  box-shadow: var(--shadow-lg);
+  position: relative;
+}
+.modal::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 4px;
+  border-radius: 3px 3px 0 0;
+  background: var(--accent);
+}
+
+.modal-title {
+  font-size: 1.8rem;
+  font-weight: 900;
+  margin-bottom: 10px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+.modal-title.win  { color: var(--gold); }
+.modal-title.lose { color: var(--hit); }
+
+.modal-desc {
+  color: var(--ink-mid);
+  margin-bottom: 28px;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
