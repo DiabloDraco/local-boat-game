@@ -20,6 +20,9 @@ const PHASES = {
 const GAME_TYPES = {
   BATTLESHIP: 'battleship',
   CHECKERS: 'checkers',
+  TIC_TAC_TOE: 'tic_tac_toe',
+  DURAK: 'durak',
+  HANGMAN_DUEL: 'hangman_duel',
 };
 
 const CELL = {

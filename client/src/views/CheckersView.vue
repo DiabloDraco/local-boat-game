@@ -19,22 +19,41 @@
         <span v-if="nameError" class="field-error">Введите ваше имя</span>
       </div>
 
+      <div class="form-group">
+        <label class="form-label">Название комнаты</label>
+        <input v-model="roomName" class="input" placeholder="Например: Шашки 1x1" maxlength="32" />
+      </div>
+
+      <div class="privacy-row">
+        <button class="btn" :class="roomVisibility === 'public' ? 'btn-primary' : 'btn-ghost'" :disabled="connecting" @click="roomVisibility = 'public'">Публичная</button>
+        <button class="btn" :class="roomVisibility === 'private' ? 'btn-primary' : 'btn-ghost'" :disabled="connecting" @click="roomVisibility = 'private'">Приватная</button>
+      </div>
+
+      <div v-if="roomVisibility === 'private'" class="form-group">
+        <label class="form-label">Пароль комнаты</label>
+        <input v-model="roomPassword" class="input" placeholder="Введите пароль" maxlength="32" @keydown.enter="createRoom" />
+      </div>
+
       <button class="btn btn-primary full-width" :disabled="connecting" @click="createRoom">
         {{ connecting ? 'Подключение...' : 'Создать комнату' }}
       </button>
 
       <div class="divider">или</div>
 
-      <div class="join-row">
-        <input
-          v-model="joinCode"
-          class="input code-input"
-          placeholder="КОД"
-          maxlength="4"
-          style="text-transform:uppercase"
-          @keydown.enter="joinRoom"
-        />
-        <button class="btn btn-ghost" :disabled="connecting" @click="joinRoom">Войти</button>
+      <div class="rooms-head">
+        <span class="form-label">Список комнат</span>
+        <button class="btn btn-ghost btn-small" :disabled="connecting" @click="requestRooms">Обновить</button>
+      </div>
+
+      <div class="rooms-list">
+        <div v-if="rooms.length === 0" class="rooms-empty">Нет доступных комнат</div>
+        <div v-for="room in rooms" :key="room.code" class="room-row">
+          <div class="room-meta">
+            <div class="room-title">{{ room.roomName }}</div>
+            <div class="room-sub">{{ room.hostName }} • {{ room.visibility === 'private' ? 'Приватная' : 'Публичная' }}</div>
+          </div>
+          <button class="btn btn-ghost btn-small" :disabled="connecting" @click="joinRoom(room)">Войти</button>
+        </div>
       </div>
 
       <button class="btn btn-ghost full-width back-btn" @click="goGames">К списку игр</button>
@@ -137,7 +156,10 @@ const router = useRouter()
 
 const mode = ref('menu') // menu | waiting | playing
 const playerName = ref('')
-const joinCode = ref('')
+const roomName = ref('')
+const roomVisibility = ref('public')
+const roomPassword = ref('')
+const rooms = ref([])
 const error = ref('')
 const connecting = ref(false)
 const nameError = ref(false)
@@ -232,6 +254,10 @@ function resetGameState() {
 
 async function createRoom() {
   if (!requireName()) return
+  if (roomVisibility.value === 'private' && !roomPassword.value.trim()) {
+    error.value = 'Введите пароль для приватной комнаты'
+    return
+  }
   error.value = ''
   connecting.value = true
   try {
@@ -239,6 +265,9 @@ async function createRoom() {
     socket.emit('room:create', {
       playerName: playerName.value.trim(),
       gameType: 'checkers',
+      roomName: roomName.value.trim(),
+      visibility: roomVisibility.value,
+      password: roomVisibility.value === 'private' ? roomPassword.value : '',
     })
   } catch {
     error.value = 'Не удалось подключиться к серверу'
@@ -246,25 +275,31 @@ async function createRoom() {
   }
 }
 
-async function joinRoom() {
+async function joinRoom(room) {
   if (!requireName()) return
-  if (!joinCode.value.trim()) {
-    error.value = 'Введите код комнаты'
-    return
-  }
-
   error.value = ''
   connecting.value = true
   try {
+    const password = room.requiresPassword ? (window.prompt('Введите пароль комнаты') || '') : ''
     await connect()
     socket.emit('room:join', {
-      code: joinCode.value.trim().toUpperCase(),
+      code: room.code,
       playerName: playerName.value.trim(),
       gameType: 'checkers',
+      password,
     })
   } catch {
     error.value = 'Не удалось подключиться к серверу'
     connecting.value = false
+  }
+}
+
+async function requestRooms() {
+  try {
+    await connect()
+    socket.emit('room:list', { gameType: 'checkers' })
+  } catch {
+    error.value = 'Не удалось загрузить комнаты'
   }
 }
 
@@ -472,6 +507,8 @@ function goGames() {
 }
 
 onMounted(() => {
+  requestRooms()
+
   socket.on('room:created', ({ code, role, gameType }) => {
     if (gameType && gameType !== 'checkers') return
     roomCode.value = code
@@ -506,6 +543,16 @@ onMounted(() => {
   socket.on('room:error', ({ message }) => {
     error.value = message
     connecting.value = false
+  })
+
+  socket.on('room:list', ({ gameType, rooms: list }) => {
+    if (gameType !== 'checkers') return
+    rooms.value = list
+  })
+
+  socket.on('room:list_changed', ({ gameType, rooms: list }) => {
+    if (gameType !== 'checkers') return
+    rooms.value = list
   })
 
   socket.on('checkers:start', ({ board: startBoard, currentTurn: turn, forcedFrom: forced, winner: gameWinner }) => {
@@ -548,6 +595,8 @@ onUnmounted(() => {
   socket.off('room:joined')
   socket.off('room:opponent_joined')
   socket.off('room:error')
+  socket.off('room:list')
+  socket.off('room:list_changed')
   socket.off('checkers:start')
   socket.off('checkers:state')
   socket.off('checkers:error')
@@ -578,11 +627,71 @@ onUnmounted(() => {
   align-items: center;
 }
 
-.code-input {
+.privacy-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.privacy-row .btn {
   flex: 1;
-  letter-spacing: 4px;
-  font-size: 18px;
+}
+
+.rooms-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.btn-small {
+  padding: 8px 12px;
+  font-size: 11px;
+}
+
+.rooms-list {
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.55);
+  max-height: 220px;
+  overflow: auto;
+}
+
+.rooms-empty {
+  padding: 12px;
+  color: var(--ink-light);
   text-align: center;
+  font-size: 13px;
+}
+
+.room-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.room-row:first-child {
+  border-top: none;
+}
+
+.room-meta {
+  min-width: 0;
+}
+
+.room-title {
+  font-weight: 700;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.room-sub {
+  font-size: 12px;
+  color: var(--ink-light);
 }
 
 .back-btn {
