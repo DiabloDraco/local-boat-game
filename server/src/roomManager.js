@@ -1,5 +1,5 @@
 const { customAlphabet } = require('nanoid')
-const { PHASES } = require('./constants')
+const { PHASES, GAME_TYPES } = require('./constants')
 
 const nanoid = customAlphabet('ABCDEFGHJKLMNPQRSTUVWXYZ23456789', 4)
 
@@ -9,15 +9,18 @@ const rooms = new Map()
 // playerToRoom: Map<socketId, code>
 const playerToRoom = new Map()
 
-function createRoom(socketId, playerName) {
+function createRoom(socketId, playerName, gameType = GAME_TYPES.BATTLESHIP) {
   const code = _uniqueCode()
   rooms.set(code, {
     code,
+    gameType,
     phase: PHASES.LOBBY,
     players: [
       { id: socketId, name: playerName, role: 'host' }
     ],
     boards: {},
+    checkers: null,
+    checkersRematch: { host: false, guest: false },
     currentTurn: null,
     winner: null,
   })
@@ -25,10 +28,11 @@ function createRoom(socketId, playerName) {
   return code
 }
 
-function joinRoom(code, socketId, playerName) {
+function joinRoom(code, socketId, playerName, gameType = GAME_TYPES.BATTLESHIP) {
   const room = rooms.get(code)
   if (!room) return { error: 'Комната не найдена' }
   if (room.players.length >= 2) return { error: 'Комната уже заполнена' }
+  if (room.gameType !== gameType) return { error: 'Эта комната создана для другой игры' }
   room.players.push({ id: socketId, name: playerName, role: 'guest' })
   playerToRoom.set(socketId, code)
   return { room }

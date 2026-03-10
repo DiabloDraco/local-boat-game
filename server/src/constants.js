@@ -17,6 +17,11 @@ const PHASES = {
   GAME_OVER: 'game_over',
 };
 
+const GAME_TYPES = {
+  BATTLESHIP: 'battleship',
+  CHECKERS: 'checkers',
+};
+
 const CELL = {
   EMPTY: 'empty',
   SHIP:  'ship',
@@ -25,4 +30,4 @@ const CELL = {
   SUNK:  'sunk',
 };
 
-module.exports = { GRID_SIZE, SHIP_FLEET, TOTAL_SHIP_CELLS, PHASES, CELL };
+module.exports = { GRID_SIZE, SHIP_FLEET, TOTAL_SHIP_CELLS, PHASES, GAME_TYPES, CELL };

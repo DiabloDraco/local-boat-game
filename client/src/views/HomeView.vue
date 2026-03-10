@@ -99,7 +99,10 @@ async function createRoom() {
   connecting.value = true
   try {
     await connect()
-    socket.emit('room:create', { playerName: playerName.value.trim() })
+    socket.emit('room:create', {
+      playerName: playerName.value.trim(),
+      gameType: 'battleship',
+    })
   } catch {
     error.value = 'Не удалось подключиться к серверу'
     connecting.value = false
@@ -116,6 +119,7 @@ async function joinRoom() {
     socket.emit('room:join', {
       code: joinCode.value.trim().toUpperCase(),
       playerName: playerName.value.trim(),
+      gameType: 'battleship',
     })
   } catch {
     error.value = 'Не удалось подключиться к серверу'
