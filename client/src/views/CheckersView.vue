@@ -281,6 +281,34 @@ function capturesForPiece(row, col) {
   const piece = pieceAt(row, col)
   if (!piece) return []
 
+  if (piece.king) {
+    const captures = []
+    for (const dr of [1, -1]) {
+      for (const dc of [-1, 1]) {
+        let nr = row + dr
+        let nc = col + dc
+        let enemy = null
+
+        while (inBounds(nr, nc)) {
+          const cell = pieceAt(nr, nc)
+          if (!cell) {
+            if (enemy) captures.push({ toRow: nr, toCol: nc })
+            nr += dr
+            nc += dc
+            continue
+          }
+
+          if (cell.player === piece.player) break
+          if (enemy) break
+          enemy = { row: nr, col: nc }
+          nr += dr
+          nc += dc
+        }
+      }
+    }
+    return captures
+  }
+
   const captures = []
   for (const dr of movementDirs(piece)) {
     for (const dc of [-1, 1]) {
@@ -306,6 +334,33 @@ function movesForPiece(row, col) {
 
   const captures = capturesForPiece(row, col)
   if (captures.length > 0) return captures
+
+  if (piece.king) {
+    let mustCapture = false
+    for (let r = 0; r < 8; r++) {
+      for (let c = 0; c < 8; c++) {
+        const cell = pieceAt(r, c)
+        if (cell?.player === piece.player && capturesForPiece(r, c).length > 0) {
+          mustCapture = true
+        }
+      }
+    }
+    if (mustCapture) return []
+
+    const moves = []
+    for (const dr of [1, -1]) {
+      for (const dc of [-1, 1]) {
+        let nr = row + dr
+        let nc = col + dc
+        while (inBounds(nr, nc) && !pieceAt(nr, nc)) {
+          moves.push({ toRow: nr, toCol: nc })
+          nr += dr
+          nc += dc
+        }
+      }
+    }
+    return moves
+  }
 
   let mustCapture = false
   for (let r = 0; r < 8; r++) {
@@ -632,6 +687,7 @@ onUnmounted(() => {
   aspect-ratio: 1 / 1;
   display: grid;
   grid-template-columns: repeat(8, 1fr);
+  grid-template-rows: repeat(8, 1fr);
   border: 2px solid var(--ink);
   box-shadow: var(--shadow-lg);
 }

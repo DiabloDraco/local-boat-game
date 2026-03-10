@@ -15,7 +15,7 @@
       <article class="card game-card">
         <h2 class="game-name">Шашки</h2>
         <p class="game-desc">Классическая игра на двоих</p>
-        <button class="btn btn-ghost full-width" @click="openCheckers">
+        <button class="btn btn-primary full-width" @click="openCheckers">
           Играть
         </button>
       </article>

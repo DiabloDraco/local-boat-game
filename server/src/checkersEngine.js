@@ -35,6 +35,22 @@ function pieceMoves(board, row, col) {
   const piece = board[row][col]
   if (!piece) return []
 
+  if (piece.king) {
+    const moves = []
+    for (const dr of [1, -1]) {
+      for (const dc of [1, -1]) {
+        let nr = row + dr
+        let nc = col + dc
+        while (inBounds(nr, nc) && isDarkCell(nr, nc) && !board[nr][nc]) {
+          moves.push({ fromRow: row, fromCol: col, toRow: nr, toCol: nc, capture: false })
+          nr += dr
+          nc += dc
+        }
+      }
+    }
+    return moves
+  }
+
   const moves = []
   for (const dr of movementDirs(piece)) {
     for (const dc of [-1, 1]) {
@@ -52,6 +68,45 @@ function pieceMoves(board, row, col) {
 function pieceCaptures(board, row, col) {
   const piece = board[row][col]
   if (!piece) return []
+
+  if (piece.king) {
+    const moves = []
+    for (const dr of [1, -1]) {
+      for (const dc of [1, -1]) {
+        let nr = row + dr
+        let nc = col + dc
+        let enemy = null
+
+        while (inBounds(nr, nc)) {
+          const cell = board[nr][nc]
+          if (!cell) {
+            if (enemy) {
+              moves.push({
+                fromRow: row,
+                fromCol: col,
+                toRow: nr,
+                toCol: nc,
+                capture: true,
+                capturedRow: enemy.row,
+                capturedCol: enemy.col,
+              })
+            }
+            nr += dr
+            nc += dc
+            continue
+          }
+
+          if (cell.player === piece.player) break
+          if (enemy) break
+
+          enemy = { row: nr, col: nc }
+          nr += dr
+          nc += dc
+        }
+      }
+    }
+    return moves
+  }
 
   const moves = []
   for (const dr of movementDirs(piece)) {
