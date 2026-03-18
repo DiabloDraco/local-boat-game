@@ -84,13 +84,14 @@ module.exports = function registerHandlers(io, socket) {
   }
 
   // ── room:create ────────────────────────────────────────────────────────────
-  socket.on('room:create', ({ playerName, gameType, roomName, visibility, password }) => {
+  socket.on('room:create', ({ playerName, gameType, roomName, visibility, password, checkersRule }) => {
     const name = (playerName || 'Игрок').trim().slice(0, 24)
     const safeGameType = parseGameType(gameType)
     const code = rm.createRoom(socket.id, name, safeGameType, {
       roomName,
       visibility,
       password,
+      checkersRule: safeGameType === GAME_TYPES.CHECKERS ? checkersRule : undefined,
     })
     const room = rm.getRoom(code)
     socket.join(code)
@@ -100,6 +101,7 @@ module.exports = function registerHandlers(io, socket) {
       gameType: safeGameType,
       roomName: room.roomName,
       visibility: room.visibility,
+      checkersRule: room.checkersRule,
     })
     broadcastRoomList(safeGameType)
   })
@@ -132,6 +134,7 @@ module.exports = function registerHandlers(io, socket) {
       role: 'guest',
       opponentName: host.name,
       gameType: room.gameType,
+      checkersRule: room.checkersRule,
     })
 
     // Notify host
@@ -147,13 +150,14 @@ module.exports = function registerHandlers(io, socket) {
 
     if (room.gameType === GAME_TYPES.CHECKERS) {
       room.phase = PHASES.BATTLE
-      room.checkers = createInitialState()
+      room.checkers = createInitialState({ capturePolicy: room.checkersRule })
       room.checkersRematch = { host: false, guest: false }
       io.to(upperCode).emit('checkers:start', {
         board: room.checkers.board,
         currentTurn: room.checkers.currentTurn,
         forcedFrom: room.checkers.forcedFrom,
         winner: room.checkers.winner,
+        rules: room.checkers.rules,
       })
       broadcastRoomList(room.gameType)
       return
@@ -266,7 +270,7 @@ module.exports = function registerHandlers(io, socket) {
     const player = roomPlayerById(room, socket.id)
     if (!player) return
 
-    const result = applyMove(room.checkers, player.role, payload)
+    const result = applyMove(room.checkers, player.role, payload, room.checkers.rules)
     if (!result.ok) {
       socket.emit('checkers:error', { message: result.error })
       return
@@ -289,6 +293,8 @@ module.exports = function registerHandlers(io, socket) {
       captured: result.meta.captured,
       promoted: result.meta.promoted,
       mustContinue: result.meta.mustContinue,
+      sacrificed: result.meta.sacrificed,
+      rules: room.checkers.rules,
     })
   })
 
@@ -313,7 +319,7 @@ module.exports = function registerHandlers(io, socket) {
 
     room.phase = PHASES.BATTLE
     room.winner = null
-    room.checkers = createInitialState()
+    room.checkers = createInitialState({ capturePolicy: room.checkers.rules?.capturePolicy || room.checkersRule })
     room.checkersRematch = { host: false, guest: false }
 
     io.to(room.code).emit('checkers:start', {

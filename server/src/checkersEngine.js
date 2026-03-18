@@ -1,4 +1,9 @@
 const CHECKERS_SIZE = 8
+const REPETITION_LIMIT = 3
+const CAPTURE_POLICY = {
+  MANDATORY: 'mandatory',
+  FUK: 'fuk',
+}
 
 function createInitialBoard() {
   const board = Array.from({ length: CHECKERS_SIZE }, () => Array.from({ length: CHECKERS_SIZE }, () => null))
@@ -29,6 +34,11 @@ function isDarkCell(row, col) {
 function movementDirs(piece) {
   if (piece.king) return [1, -1]
   return piece.player === 'host' ? [1] : [-1]
+}
+
+function captureDirs(piece) {
+  if (piece.king) return [1, -1]
+  return [1, -1]
 }
 
 function pieceMoves(board, row, col) {
@@ -109,7 +119,7 @@ function pieceCaptures(board, row, col) {
   }
 
   const moves = []
-  for (const dr of movementDirs(piece)) {
+  for (const dr of captureDirs(piece)) {
     for (const dc of [-1, 1]) {
       const midRow = row + dr
       const midCol = col + dc
@@ -138,7 +148,8 @@ function pieceCaptures(board, row, col) {
   return moves
 }
 
-function allMovesForPlayer(board, player) {
+function allMovesForPlayer(board, player, options = {}) {
+  const capturePolicy = getCapturePolicy(options)
   const captures = []
   const normalMoves = []
 
@@ -151,7 +162,7 @@ function allMovesForPlayer(board, player) {
     }
   }
 
-  return captures.length > 0 ? captures : normalMoves
+  return captures.length > 0 && capturePolicy !== CAPTURE_POLICY.FUK ? captures : [...captures, ...normalMoves]
 }
 
 function cloneBoard(board) {
@@ -181,13 +192,57 @@ function countPieces(board, player) {
   return count
 }
 
-function resolveWinner(board, currentTurn) {
+function getCapturePolicy(options = {}) {
+  return options.capturePolicy === CAPTURE_POLICY.FUK ? CAPTURE_POLICY.FUK : CAPTURE_POLICY.MANDATORY
+}
+
+function hasCaptureForPlayer(board, player) {
+  for (let row = 0; row < CHECKERS_SIZE; row++) {
+    for (let col = 0; col < CHECKERS_SIZE; col++) {
+      const piece = board[row][col]
+      if (!piece || piece.player !== player) continue
+      if (pieceCaptures(board, row, col).length > 0) return true
+    }
+  }
+  return false
+}
+
+function getFirstCapturePiece(board, player) {
+  for (let row = 0; row < CHECKERS_SIZE; row++) {
+    for (let col = 0; col < CHECKERS_SIZE; col++) {
+      const piece = board[row][col]
+      if (!piece || piece.player !== player) continue
+      if (pieceCaptures(board, row, col).length > 0) {
+        return { row, col }
+      }
+    }
+  }
+  return null
+}
+
+function serializePosition(board, currentTurn, forcedFrom) {
+  const pieces = []
+
+  for (let row = 0; row < CHECKERS_SIZE; row++) {
+    for (let col = 0; col < CHECKERS_SIZE; col++) {
+      const piece = board[row][col]
+      if (!piece) continue
+      pieces.push(`${row},${col},${piece.player[0]},${piece.king ? 'k' : 'm'}`)
+    }
+  }
+
+  const forced = forcedFrom ? `${forcedFrom.row},${forcedFrom.col}` : '-'
+  return `${currentTurn}|${forced}|${pieces.join(';')}`
+}
+
+function resolveWinner(board, currentTurn, options = {}) {
+  const capturePolicy = getCapturePolicy(options)
   const hostCount = countPieces(board, 'host')
   const guestCount = countPieces(board, 'guest')
   if (hostCount === 0) return 'guest'
   if (guestCount === 0) return 'host'
 
-  const legal = allMovesForPlayer(board, currentTurn)
+  const legal = allMovesForPlayer(board, currentTurn, { capturePolicy })
   if (legal.length === 0) {
     return currentTurn === 'host' ? 'guest' : 'host'
   }
@@ -195,7 +250,8 @@ function resolveWinner(board, currentTurn) {
   return null
 }
 
-function applyMove(state, playerRole, moveInput) {
+function applyMove(state, playerRole, moveInput, options = {}) {
+  const capturePolicy = getCapturePolicy(options)
   if (!state || !state.board) return { ok: false, error: 'Игра не инициализирована' }
   if (state.winner) return { ok: false, error: 'Игра уже завершена' }
   if (state.currentTurn !== playerRole) return { ok: false, error: 'Сейчас ход соперника' }
@@ -214,8 +270,10 @@ function applyMove(state, playerRole, moveInput) {
 
   const captures = pieceCaptures(state.board, fromRow, fromCol)
   const normals = pieceMoves(state.board, fromRow, fromCol)
-  const playerHasCapture = allMovesForPlayer(state.board, playerRole).some(m => m.capture)
-  const legalFromPiece = playerHasCapture ? captures : [...captures, ...normals]
+  const playerHasCapture = hasCaptureForPlayer(state.board, playerRole)
+  const legalFromPiece = capturePolicy === CAPTURE_POLICY.FUK
+    ? [...captures, ...normals]
+    : playerHasCapture ? captures : [...captures, ...normals]
 
   const chosen = legalFromPiece.find(m => m.toRow === toRow && m.toCol === toCol)
   if (!chosen) {
@@ -235,6 +293,26 @@ function applyMove(state, playerRole, moveInput) {
 
   const promoted = maybePromote(movingPiece, toRow)
 
+  let sacrificed = null
+  if (!chosen.capture && playerHasCapture && capturePolicy === CAPTURE_POLICY.FUK) {
+    const sacrificeSource = captures.length > 0
+      ? { row: toRow, col: toCol }
+      : getFirstCapturePiece(state.board, playerRole)
+
+    if (sacrificeSource) {
+      const pieceOnBoard = board[sacrificeSource.row][sacrificeSource.col]
+      if (pieceOnBoard) {
+        sacrificed = {
+          row: sacrificeSource.row,
+          col: sacrificeSource.col,
+          player: pieceOnBoard.player,
+          king: pieceOnBoard.king,
+        }
+        board[sacrificeSource.row][sacrificeSource.col] = null
+      }
+    }
+  }
+
   let nextTurn = playerRole === 'host' ? 'guest' : 'host'
   let forcedFrom = null
 
@@ -246,7 +324,25 @@ function applyMove(state, playerRole, moveInput) {
     }
   }
 
-  const winner = resolveWinner(board, nextTurn)
+  let positionCounts
+  if (chosen.capture || promoted || sacrificed) {
+    positionCounts = {}
+  } else {
+    positionCounts = { ...(state.positionCounts || {}) }
+  }
+
+  const positionKey = serializePosition(board, nextTurn, forcedFrom)
+  const repetitionCount = (positionCounts[positionKey] || 0) + 1
+  positionCounts[positionKey] = repetitionCount
+
+  let winner = null
+  let repetitionLoss = false
+  if (repetitionCount >= REPETITION_LIMIT) {
+    winner = playerRole === 'host' ? 'guest' : 'host'
+    repetitionLoss = true
+  } else {
+    winner = resolveWinner(board, nextTurn, { capturePolicy })
+  }
 
   return {
     ok: true,
@@ -256,6 +352,7 @@ function applyMove(state, playerRole, moveInput) {
       currentTurn: nextTurn,
       forcedFrom,
       winner,
+      positionCounts,
       lastMove: {
         fromRow,
         fromCol,
@@ -268,24 +365,37 @@ function applyMove(state, playerRole, moveInput) {
     meta: {
       captured,
       promoted,
+      sacrificed,
       mustContinue: Boolean(forcedFrom),
       nextTurn,
       winner,
+      repetitionLoss,
     },
   }
 }
 
-function createInitialState() {
+function createInitialState(options = {}) {
+  const capturePolicy = getCapturePolicy(options)
+  const board = createInitialBoard()
+  const currentTurn = 'host'
+  const forcedFrom = null
+  const positionKey = serializePosition(board, currentTurn, forcedFrom)
+
   return {
-    board: createInitialBoard(),
-    currentTurn: 'host',
-    forcedFrom: null,
+    board,
+    currentTurn,
+    forcedFrom,
     winner: null,
     lastMove: null,
+    positionCounts: { [positionKey]: 1 },
+    rules: {
+      capturePolicy,
+    },
   }
 }
 
 module.exports = {
+  CAPTURE_POLICY,
   CHECKERS_SIZE,
   createInitialState,
   applyMove,

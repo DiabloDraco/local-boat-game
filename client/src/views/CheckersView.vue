@@ -34,6 +34,14 @@
         <input v-model="roomPassword" class="input" placeholder="Введите пароль" maxlength="32" @keydown.enter="createRoom" />
       </div>
 
+      <div class="form-group">
+        <label class="form-label">Режим взятия</label>
+        <div class="privacy-row">
+          <button class="btn" :class="checkersRule === 'mandatory' ? 'btn-primary' : 'btn-ghost'" :disabled="connecting" @click="checkersRule = 'mandatory'">Обязан бить</button>
+          <button class="btn" :class="checkersRule === 'fuk' ? 'btn-primary' : 'btn-ghost'" :disabled="connecting" @click="checkersRule = 'fuk'">Фук</button>
+        </div>
+      </div>
+
       <button class="btn btn-primary full-width" :disabled="connecting" @click="createRoom">
         {{ connecting ? 'Подключение...' : 'Создать комнату' }}
       </button>
@@ -50,7 +58,7 @@
         <div v-for="room in rooms" :key="room.code" class="room-row">
           <div class="room-meta">
             <div class="room-title">{{ room.roomName }}</div>
-            <div class="room-sub">{{ room.hostName }} • {{ room.visibility === 'private' ? 'Приватная' : 'Публичная' }}</div>
+            <div class="room-sub">{{ room.hostName }} • {{ room.visibility === 'private' ? 'Приватная' : 'Публичная' }} • {{ room.checkersRule === 'fuk' ? 'Фук' : 'Обязан бить' }}</div>
           </div>
           <button class="btn btn-ghost btn-small" :disabled="connecting" @click="joinRoom(room)">Войти</button>
         </div>
@@ -91,6 +99,8 @@
         <p class="turn-text top-space">
           {{ winner ? winnerText : isMyTurn ? 'Ваш ход' : 'Ход соперника' }}
         </p>
+
+        <p class="hint-text">Режим: {{ checkersRuleLabel }}</p>
 
         <p v-if="forcedFrom && isMyTurn" class="hint-text">
           Продолжите рубку этой же шашкой
@@ -160,6 +170,7 @@ const roomName = ref('')
 const roomVisibility = ref('public')
 const roomPassword = ref('')
 const rooms = ref([])
+const checkersRule = ref('mandatory')
 const error = ref('')
 const connecting = ref(false)
 const nameError = ref(false)
@@ -178,6 +189,7 @@ const winner = ref(null)
 const selected = ref(null)
 const legalTargets = ref([])
 const rematchReady = ref({ host: false, guest: false })
+const lastSacrificed = ref(null)
 
 const opponentLeft = ref(false)
 
@@ -191,6 +203,8 @@ const winnerText = computed(() => {
   if (!winner.value) return ''
   return winner.value === 'host' ? `${hostName.value} победил` : `${guestName.value} победил`
 })
+const checkersRuleLabel = computed(() => checkersRule.value === 'fuk' ? 'Фук' : 'Обязательная рубка')
+const isFukMode = computed(() => checkersRule.value === 'fuk')
 const availableStarts = computed(() => {
   if (!isMyTurn.value) return []
   if (forcedFrom.value) return [forcedFrom.value]
@@ -268,6 +282,7 @@ async function createRoom() {
       roomName: roomName.value.trim(),
       visibility: roomVisibility.value,
       password: roomVisibility.value === 'private' ? roomPassword.value : '',
+      checkersRule: checkersRule.value,
     })
   } catch {
     error.value = 'Не удалось подключиться к серверу'
@@ -308,6 +323,11 @@ function movementDirs(piece) {
   return piece.player === 'host' ? [1] : [-1]
 }
 
+function captureDirs(piece) {
+  if (piece.king) return [1, -1]
+  return [1, -1]
+}
+
 function inBounds(row, col) {
   return row >= 0 && row < 8 && col >= 0 && col < 8
 }
@@ -345,7 +365,7 @@ function capturesForPiece(row, col) {
   }
 
   const captures = []
-  for (const dr of movementDirs(piece)) {
+  for (const dr of captureDirs(piece)) {
     for (const dc of [-1, 1]) {
       const midRow = row + dr
       const midCol = col + dc
@@ -380,7 +400,7 @@ function movesForPiece(row, col) {
         }
       }
     }
-    if (mustCapture) return []
+    if (mustCapture && !isFukMode.value) return []
 
     const moves = []
     for (const dr of [1, -1]) {
@@ -406,7 +426,7 @@ function movesForPiece(row, col) {
       }
     }
   }
-  if (mustCapture) return []
+  if (mustCapture && !isFukMode.value) return []
 
   const moves = []
   for (const dr of movementDirs(piece)) {
@@ -509,24 +529,26 @@ function goGames() {
 onMounted(() => {
   requestRooms()
 
-  socket.on('room:created', ({ code, role, gameType }) => {
+  socket.on('room:created', ({ code, role, gameType, checkersRule: roomRule }) => {
     if (gameType && gameType !== 'checkers') return
     roomCode.value = code
     myRole.value = role
     hostName.value = playerName.value.trim()
     guestName.value = ''
+    if (roomRule) checkersRule.value = roomRule
     mode.value = 'waiting'
     connecting.value = false
     error.value = ''
   })
 
-  socket.on('room:joined', ({ code, role, opponentName: oppName, gameType }) => {
+  socket.on('room:joined', ({ code, role, opponentName: oppName, gameType, checkersRule: roomRule }) => {
     if (gameType && gameType !== 'checkers') return
     roomCode.value = code
     myRole.value = role
     opponentName.value = oppName || ''
     hostName.value = oppName || ''
     guestName.value = playerName.value.trim()
+    if (roomRule) checkersRule.value = roomRule
     mode.value = 'waiting'
     connecting.value = false
     error.value = ''
@@ -555,11 +577,12 @@ onMounted(() => {
     rooms.value = list
   })
 
-  socket.on('checkers:start', ({ board: startBoard, currentTurn: turn, forcedFrom: forced, winner: gameWinner }) => {
+  socket.on('checkers:start', ({ board: startBoard, currentTurn: turn, forcedFrom: forced, winner: gameWinner, rules }) => {
     board.value = startBoard
     currentTurn.value = turn
     forcedFrom.value = forced
     winner.value = gameWinner
+    if (rules?.capturePolicy) checkersRule.value = rules.capturePolicy
     rematchReady.value = { host: false, guest: false }
     mode.value = 'playing'
     clearSelection()
@@ -571,8 +594,15 @@ onMounted(() => {
     currentTurn.value = state.currentTurn
     forcedFrom.value = state.forcedFrom
     winner.value = state.winner
+    if (state.rules?.capturePolicy) checkersRule.value = state.rules.capturePolicy
     rematchReady.value = { host: false, guest: false }
     clearSelection()
+    if (state.sacrificed) {
+      lastSacrificed.value = state.sacrificed
+      error.value = 'Фук: шашка, которая должна была бить, снята с доски'
+    } else {
+      error.value = ''
+    }
   })
 
   socket.on('checkers:error', ({ message }) => {
@@ -819,19 +849,31 @@ onUnmounted(() => {
 }
 
 .cell.selected {
-  box-shadow: inset 0 0 0 4px #2d6a4f;
+  box-shadow:
+    inset 0 0 0 4px #1f7a53,
+    inset 0 0 0 9px rgba(113, 214, 164, 0.34),
+    0 0 16px rgba(45, 106, 79, 0.34);
 }
 
 .cell.target {
-  box-shadow: inset 0 0 0 4px rgba(44, 95, 138, 0.8);
+  box-shadow:
+    inset 0 0 0 4px #2f5f86,
+    inset 0 0 0 10px rgba(116, 180, 231, 0.42),
+    0 0 18px rgba(74, 139, 191, 0.34);
 }
 
 .cell.selectable {
-  box-shadow: inset 0 0 0 3px rgba(45, 106, 79, 0.65);
+  box-shadow:
+    inset 0 0 0 4px #b8860b,
+    inset 0 0 0 10px rgba(255, 214, 102, 0.42),
+    0 0 14px rgba(212, 175, 55, 0.35);
 }
 
 .cell.forced {
-  box-shadow: inset 0 0 0 4px rgba(192, 57, 43, 0.8);
+  box-shadow:
+    inset 0 0 0 4px #b42318,
+    inset 0 0 0 10px rgba(255, 131, 122, 0.4),
+    0 0 16px rgba(192, 57, 43, 0.38);
 }
 
 .cell:hover {

@@ -14,12 +14,14 @@ function createRoom(socketId, playerName, gameType = GAME_TYPES.BATTLESHIP, opti
   const roomName = (options.roomName || `${playerName} room`).toString().trim().slice(0, 32) || `${playerName} room`
   const visibility = options.visibility === 'private' ? 'private' : 'public'
   const password = visibility === 'private' ? (options.password || '').toString().slice(0, 64) : ''
+  const checkersRule = options.checkersRule === 'fuk' ? 'fuk' : 'mandatory'
   rooms.set(code, {
     code,
     roomName,
     visibility,
     password,
     gameType,
+    checkersRule,
     phase: PHASES.LOBBY,
     players: [
       { id: socketId, name: playerName, role: 'host' }
@@ -104,6 +106,7 @@ function listRooms(gameType = GAME_TYPES.BATTLESHIP) {
       playersCount: room.players.length,
       visibility: room.visibility,
       requiresPassword: room.visibility === 'private',
+      checkersRule: room.checkersRule,
     })
   }
   return out
